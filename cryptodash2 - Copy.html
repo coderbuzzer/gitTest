@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Dashboard with Technical Analysis Tools</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6e45e2',
+                        secondary: '#88d3ce',
+                        dark: '#1a1a2e',
+                        light: '#f5f5f7',
+                        success: '#4caf50',
+                        warning: '#ff9800',
+                        danger: '#f44336',
+                        info: '#2196f3',
+                        up: '#4caf50',
+                        // Green for price increases
+                        down: '#f44336',
+                        // Red for price decreases
+                        ema9: '#FFA500',
+                        // Orange for EMA9
+                        ema21: '#00BFFF',
+                        // Deep Sky Blue for EMA21
+                        ema50: '#FF00FF',
+                        // Magenta for EMA50
+                        sma200: '#0000FF',
+                        // Blue for SMA200
+                        trendline: '#FFFF00' // Yellow for trendline
+                    },
+                    animation: {
+                        'gradient-x': 'gradient-x 15s ease infinite',
+                        'gradient-y': 'gradient-y 15s ease infinite',
+                        'gradient-xy': 'gradient-xy 15s ease infinite',
+                        'pulse-slow': 'pulse 5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        'gradient-x': {
+                            '0%, 100%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            }
+                        },
+                        'gradient-y': {
+                            '0%, 100%': {
+                                'background-size': '400% 400%',
+                                'background-position': 'center top'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'center bottom'
+                            }
+                        },
+                        'gradient-xy': {
+                            '0%, 100%': {
+                                'background-size': '400% 400%',
+                                'background-position': 'left center'
+                            },
+                            '50%': {
+                                'background-size': '200% 200%',
+                                'background-position': 'right center'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer components {
+            .glass-card {
+                @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-lg;
+            }
+
+            .gradient-text {
+                @apply bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent;
+            }
+
+            .btn-primary {
+                @apply bg-gradient-to-r from-primary to-secondary text-white font-medium rounded-lg px-6 py-3 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105;
+            }
+
+            .price-up {
+                @apply text-up bg-up/10 px-2 py-1 rounded-md text-sm font-medium;
+            }
+
+            .price-down {
+                @apply text-down bg-down/10 px-2 py-1 rounded-md text-sm font-medium;
+            }
+
+            .candle-up {
+                @apply fill-up stroke-up;
+            }
+
+            .candle-down {
+                @apply fill-down stroke-down;
+            }
+
+            .wick-up {
+                @apply stroke-up;
+            }
+
+            .wick-down {
+                @apply stroke-down;
+            }
+
+            .indicator-btn {
+                @apply px-3 py-1 text-xs rounded-lg transition duration-300 border border-transparent;
+            }
+
+            .indicator-btn.active {
+                @apply border-white/20 bg-white/10;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-dark text-light min-h-screen">
+    <div id="loginContainer"
+        class="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 animate-gradient-x z-50 transition-opacity duration-500">
+        <div class="glass-card p-8 w-full max-w-md animate__animated animate__fadeInUp">
+            <div class="text-center mb-8">
+                <i class="fas fa-wallet text-5xl gradient-text mb-4"></i>
+                <h1 class="text-3xl font-bold gradient-text">Crypto Dashboard</h1>
+                <p class="text-white/70 mt-2">Sign in to access your portfolio</p>
+            </div>
+
+            <form id="loginForm" class="space-y-6">
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-white/80">Email</label>
+                    <input type="email" id="email" required
+                        class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition duration-300">
+                </div>
+
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium text-white/80">Password</label>
+                    <input type="password" id="password" required
+                        class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition duration-300">
+                </div>
+
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="remember"
+                            class="h-4 w-4 rounded border-white/10 bg-white/5 focus:ring-primary">
+                        <label for="remember" class="ml-2 text-sm text-white/80">Remember me</label>
+                    </div>
+                    <a href="#" class="text-sm text-secondary hover:underline">Forgot password?</a>
+                </div>
+
+                <button type="submit" id="loginBtn" class="btn-primary w-full flex items-center justify-center h-12">
+                    <span id="loginText">Sign In</span>
+                    <span id="loginSpinner" class="ml-2 hidden">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+
+                <p class="text-center text-white/70 text-sm">
+                    Don't have an account?
+                    <a href="#" class="text-secondary hover:underline">Sign up</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden p-4 md:p-6 max-w-7xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div class="flex items-center gap-4">
+                <div class="p-3 bg-gradient-to-r from-primary to-secondary rounded-xl">
+                    <i class="fas fa-wallet text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold gradient-text">Crypto Dashboard</h1>
+                    <p class="text-white/70 text-sm">Welcome back, <span id="usernameDisplay">User</span></p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 w-full md:w-auto">
+                <div class="glass-card px-4 py-2 flex items-center gap-2 animate-pulse-slow">
+                    <i class="fas fa-circle text-xs text-success"></i>
+                    <span class="text-sm">Live Market</span>
+                </div>
+                <button id="logoutBtn"
+                    class="glass-card px-4 py-2 flex items-center gap-2 hover:bg-white/10 transition duration-300">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="glass-card p-6 animate__animated animate__fadeInUp" style="animation-delay: 0.1s">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-white/70 text-sm">Portfolio Value</p>
+                            <h2 id="portfolioValue" class="text-2xl font-bold gradient-text mt-1">$24,589.42</h2>
+                            <div class="flex items-center mt-2">
+                                <span class="price-up flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i> 5.2%
+                                </span>
+                                <span class="text-white/70 text-xs ml-2">(24h)</span>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-primary/10 rounded-lg text-primary">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 animate__animated animate__fadeInUp" style="animation-delay: 0.2s">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-white/70 text-sm">BTC Price</p>
+                            <h2 id="btcPrice" class="text-2xl font-bold gradient-text mt-1">$42,156.78</h2>
+                            <div class="flex items-center mt-2">
+                                <span class="price-up flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i> 2.4%
+                                </span>
+                                <span class="text-white/70 text-xs ml-2">(24h)</span>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-orange-500/10 rounded-lg text-orange-500">
+                            <i class="fab fa-bitcoin"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 animate__animated animate__fadeInUp" style="animation-delay: 0.3s">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-white/70 text-sm">ETH Price</p>
+                            <h2 id="ethPrice" class="text-2xl font-bold gradient-text mt-1">$2,845.32</h2>
+                            <div class="flex items-center mt-2">
+                                <span class="price-down flex items-center">
+                                    <i class="fas fa-arrow-down mr-1"></i> 1.1%
+                                </span>
+                                <span class="text-white/70 text-xs ml-2">(24h)</span>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-blue-400/10 rounded-lg text-blue-400">
+                            <i class="fab fa-ethereum"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-6 animate__animated animate__fadeInUp" style="animation-delay: 0.4s">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-white/70 text-sm">24h Volume</p>
+                            <h2 class="text-2xl font-bold gradient-text mt-1">$3.2B</h2>
+                            <div class="flex items-center mt-2">
+                                <span class="price-up flex items-center">
+                                    <i class="fas fa-arrow-up mr-1"></i> 8.7%
+                                </span>
+                                <span class="text-white/70 text-xs ml-2">(24h)</span>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-success/10 rounded-lg text-success">
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div class="lg:col-span-2 glass-card p-6 animate__animated animate__fadeInUp" style="animation-delay: 0.5s">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">BTC/USD Technical Analysis</h2>
+                    <div class="flex gap-2">
+                        <button class="px-3 py-1 text-xs bg-white/5 rounded-lg hover:bg-white/10 transition duration-300">
+                            1D</button>
+                        <button class="px-3 py-1 text-xs bg-white/5 rounded-lg hover:bg-white/10 transition duration-300">
+                            1W</button>
+                        <button class="px-3 py-1 text-xs bg-white/5 rounded-lg hover:bg-white/10 transition duration-300">
+                            1M</button>
+                        <button class="px-3 py-1 text-xs bg-primary/10 text-primary rounded-lg">1Y</button>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button id="ema9Btn" class="indicator-btn" style="color: #FFA500">
+                        <i class="fas fa-wave-square mr-1"></i> EMA 9
+                    </button>
+                    <button id="ema21Btn" class="indicator-btn" style="color: #00BFFF">
+                        <i class="fas fa-wave-square mr-1"></i> EMA 21
+                    </button>
+                    <button id="ema50Btn" class="indicator-btn" style="color: #FF00FF">
+                        <i class="fas fa-wave-square mr-1"></i> EMA 50
+                    </button>
+                    <button id="sma200Btn" class="indicator-btn" style="color: #0000FF">
+                        <i class="fas fa-wave-square mr-1"></i> SMA 200
+                    </button>
+                    <button id="trendlineBtn" class="indicator-btn" style="color: #FFFF00">
+                        <i class="fas fa-chart-line mr-1"></i> Trend Line
+                    </button>
+                </div>
+
+                <div id="candlestickChart"></div>
+            </div>
+
+            <div class="glass-card p-6 animate__animated animate__fadeInUp" style="animation-delay: 0.6s">
+                <h2 class="text-xl font-bold mb-6">Recent Transactions</h2>
+                <ul class="divide-y divide-white/10">
+                    <li class="py-3 flex justify-between items-center">
+                        <div>
+                            <p class="font-medium">Buy BTC</p>
+                            <p class="text-xs text-white/60">5 mins ago</p>
+                        </div>
+                        <span class="price-up">+0.02 BTC</span>
+                    </li>
+                    <li class="py-3 flex justify-between items-center">
+
+                        <div>
+                            <p class="font-medium">Sell ETH</p>
+                            <p class="text-xs text-white/60">15 mins ago</p>
+                        </div>
+                        <span class="price-down">-0.1 ETH</span>
+                    </li>
+                    <li class="py-3 flex justify-between items-center">
+                        <div>
+                            <p class="font-medium">Buy USDT</p>
+                            <p class="text-xs text-white/60">30 mins ago</p>
+                        </div>
+                        <span class="price-up">+1200 USDT</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <footer class="text-center text-white/70 mt-12 py-4 border-t border-white/10">
+            <p>&copy; 2023 Crypto Dashboard. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <div id="toast"
+        class="fixed bottom-4 right-4 bg-white/10 backdrop-blur-md border border-white/10 rounded-lg px-6 py-3 text-white shadow-lg animate__animated animate__fadeInRight"
+        style="display: none;">
+        <i id="toastIcon" class="mr-2"></i>
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        // DOM Elements
+        const loginContainer = document.getElementById('loginContainer');
+        const dashboard = document.getElementById('dashboard');
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginText = document.getElementById('loginText');
+        const loginSpinner = document.getElementById('loginSpinner');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const usernameDisplay = document.getElementById('usernameDisplay');
+        const portfolioValue = document.getElementById('portfolioValue');
+        const btcPrice = document.getElementById('btcPrice');
+        const ethPrice = document.getElementById('ethPrice');
+        const candlestickChartContainer = document.getElementById('candlestickChart');
+
+        // Technical Analysis Buttons
+        const ema9Btn = document.getElementById('ema9Btn');
+        const ema21Btn = document.getElementById('ema21Btn');
+        const ema50Btn = document.getElementById('ema50Btn');
+        const sma200Btn = document.getElementById('sma200Btn');
+        const trendlineBtn = document.getElementById('trendlineBtn');
+
+        // Toast Notification Function
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastMessage = document.getElementById('toastMessage');
+
+            toastMessage.textContent = message;
+            toast.style.display = 'flex'; // Show the toast
+
+            // Set icon and color based on type
+            switch (type) {
+                case 'success':
+                    toastIcon.className = 'fas fa-check-circle text-green-400 mr-2';
+                    toast.style.backgroundColor = 'rgba(75, 222, 160, 0.1)';
+                    toast.style.borderColor = 'rgba(75, 222, 160, 0.3)';
+                    break;
+                case 'warning':
+                    toastIcon.className = 'fas fa-exclamation-triangle text-yellow-400 mr-2';
+                    toast.style.backgroundColor = 'rgba(250, 204, 21, 0.1)';
+                    toast.style.borderColor = 'rgba(250, 204, 21, 0.3)';
+                    break;
+                case 'danger':
+                    toastIcon.className = 'fas fa-times-circle text-red-400 mr-2';
+                    toast.style.backgroundColor = 'rgba(248, 113, 113, 0.1)';
+                    toast.style.borderColor = 'rgba(248, 113, 113, 0.3)';
+                    break;
+                case 'info':
+                default:
+                    toastIcon.className = 'fas fa-info-circle text-blue-400 mr-2';
+                    toast.style.backgroundColor = 'rgba(129, 140, 248, 0.1)';
+                    toast.style.borderColor = 'rgba(129, 140, 248, 0.3)';
+                    break;
+            }
+
+            // Hide the toast after 3 seconds
+            setTimeout(() => {
+                toast.style.display = 'none';
+                toast.classList.remove('animate__fadeInRight');
+                toast.classList.add('animate__fadeOutRight');
+            }, 3000);
+
+            // Re-add fadeInRight class after the animation completes
+            setTimeout(() => {
+                toast.classList.remove('animate__fadeOutRight');
+                toast.classList.add('animate__fadeInRight');
+            }, 3500);
+        }
+
+        // --- Candlestick Chart Functionality ---
+        let chart;
+        let ohlcData = []; // Array to hold OHLC data
+        let ema9Data = [];
+        let ema21Data = [];
+        let ema50Data = [];
+        let sma200Data = [];
+        let trendlineData = [];
+
+        // Function to generate initial random candlestick data
+        function generateInitialData(dataPoints) {
+            let now = Date.now();
+            const oneDay = 24 * 60 * 60 * 1000; // Milliseconds in a day
+            for (let i = 0; i < dataPoints; i++) {
+                let date = new Date(now - (dataPoints - 1 - i) * oneDay); // Spread over time
+                let open = 100 + Math.random() * 20;
+                let high = open + Math.random() * 10;
+                let low = open - Math.random() * 10;
+                let close = low + Math.random() * (high - low);
+
+                ohlcData.push({
+                    x: date,
+                    y: [open, high, low, close]
+                });
+            }
+            calculateIndicators(ohlcData); // Initial indicator calculation
+        }
+
+        // Function to simulate real-time price updates
+        function simulatePriceUpdates() {
+            setInterval(() => {
+                let lastBar = ohlcData[ohlcData.length - 1];
+                let now = new Date(lastBar.x.getTime() + 24 * 60 * 60 * 1000); // Next day
+                let open = lastBar.y[3]; // Previous close
+                let change = Math.random() * 20 - 10; // Random change between -10 and 10
+                let high = Math.max(open + change, open, lastBar.y[1] + Math.random() * 5); // Ensure high is higher
+                let low = Math.min(open + change, open, lastBar.y[2] - Math.random() * 5);  // Ensure low is lower
+                let close = open + change;
+
+                const newBar = {
+                    x: now,
+                    y: [open, high, low, close]
+                };
+
+                ohlcData.push(newBar);
+
+                // Recalculate indicators after adding new data
+                calculateIndicators(ohlcData);
+
+                // Update the chart
+                updateChart();
+
+                // Optionally, keep only a certain number of data points for performance
+                if (ohlcData.length > 100) {
+                    ohlcData.shift();
+                }
+
+            }, 3000); // Update every 3 seconds
+        }
+
+        // Function to calculate EMA
+        function calculateEMA(data, period) {
+            let ema = [];
+            let multiplier = 2 / (period + 1);
+
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) {
+                    ema.push(null);
+                } else if (i === period - 1) {
+                    let sum = 0;
+                    for (let j = 0; j < period; j++) {
+                        sum += data[i - j].y[3]; // Close price
+                    }
+                    ema.push(sum / period);
+                } else {
+                    ema.push((data[i].y[3] - ema[i - 1]) * multiplier + ema[i - 1]);
+                }
+            }
+            return ema;
+        }
+
+        // Function to calculate SMA
+        function calculateSMA(data, period) {
+            let sma = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) {
+                    sma.push(null);
+                } else {
+                    let sum = 0;
+                    for (let j = 0; j < period; j++) {
+                        sum += data[i - j].y[3]; // Close price
+                    }
+                    sma.push(sum / period);
+                }
+            }
+            return sma;
+        }
+
+        // Function to calculate a simple trendline (linear regression)
+        function calculateTrendline(data) {
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            let n = data.length;
+
+            for (let i = 0; i < n; i++) {
+                sumX += i;
+                sumY += data[i].y[3]; // Close price
+                sumXY += i * data[i].y[3];
+                sumX2 += i * i;
+            }
+
+            let slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            let intercept = (sumY / n) - slope * (sumX / n);
+
+            let trendline = data.map((_, index) => ({
+                x: data[index].x,
+                y: slope * index + intercept
+            }));
+
+            return trendline;
+        }
+
+        // Function to calculate all indicators
+        function calculateIndicators(data) {
+            ema9Data = calculateEMA(data, 9);
+            ema21Data = calculateEMA(data, 21);
+            ema50Data = calculateEMA(data, 50);
+            sma200Data = calculateSMA(data, 200);
+            trendlineData = calculateTrendline(data);
+        }
+
+        // Function to update the chart with new data
+        function updateChart() {
+            let series = [{
+                name: 'Candlestick',
+                type: 'candlestick',
+                data: ohlcData
+            }];
+
+            if (ema9Btn.classList.contains('active')) {
+                series.push({
+                    name: 'EMA 9',
+                    type: 'line',
+                    data: ohlcData.map((d, i) => ({ x: d.x, y: ema9Data[i] })),
+                    color: '#FFA500'
+                });
+            }
+            if (ema21Btn.classList.contains('active')) {
+                series.push({
+                    name: 'EMA 21',
+                    type: 'line',
+                    data: ohlcData.map((d, i) => ({ x: d.x, y: ema21Data[i] })),
+                    color: '#00BFFF'
+                });
+            }
+            if (ema50Btn.classList.contains('active')) {
+                series.push({
+                    name: 'EMA 50',
+                    type: 'line',
+                    data: ohlcData.map((d, i) => ({ x: d.x, y: ema50Data[i] })),
+                    color: '#FF00FF'
+                });
+            }
+            if (sma200Btn.classList.contains('active')) {
+                series.push({
+                    name: 'SMA 200',
+                    type: 'line',
+                    data: ohlcData.map((d, i) => ({ x: d.x, y: sma200Data[i] })),
+                    color: '#0000FF'
+                });
+            }
+            if (trendlineBtn.classList.contains('active')) {
+                series.push({
+                    name: 'Trendline',
+                    type: 'line',
+                    data: trendlineData,
+                    color: '#FFFF00'
+                });
+            }
+
+            chart.updateSeries(series);
+        }
+
+        // Function to initialize the candlestick chart
+        function initializeChart() {
+            const options = {
+                series: [{
+                    name: 'Candlestick',
+                    type: 'candlestick',
+                    data: ohlcData
+                }],
+                chart: {
+                    type: 'candlestick',
+                    height: 450,
+                    toolbar: {
+                        show: false
+                    },
+                },
+                xaxis: {
+                    type: 'datetime'
+                },
+                yaxis: {
+                    tooltip: {
+                        enabled: true
+                    }
+                },
+                plotOptions: {
+                    candlestick: {
+                        colors: {
+                            upward: '#4caf50',
+                            downward: '#f44336'
+                        }
+                    }
+                },
+                tooltip: {
+                    x: {
+                        format: 'yyyy-MM-dd HH:mm'
+                    }
+                }
+            };
+
+            chart = new ApexCharts(candlestickChartContainer, options);
+            chart.render();
+        }
+
+        // Function to toggle indicator visibility
+        function toggleIndicator(indicator) {
+            const btn = document.getElementById(indicator + 'Btn');
+            btn.classList.toggle('active');
+            updateChart();
+        }
+
+        // Function to clear all indicators
+        function clearAllIndicators() {
+            ema9Btn.classList.remove('active');
+            ema21Btn.classList.remove('active');
+            ema50Btn.classList.remove('active');
+            sma200Btn.classList.remove('active');
+            trendlineBtn.classList.remove('active');
+            updateChart();
+        }
+
+        // --- End Candlestick Chart Functionality ---
+
+        // --- Main Execution ---
+
+        // Generate initial data and initialize chart
+        generateInitialData(50);
+        initializeChart();
+        simulatePriceUpdates();
+
+        // --- Login/Logout and Initial Setup ---
+
+        // Login Form Submission
+        loginForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            // Simulate login process (replace with actual authentication)
+            loginText.textContent = 'Signing In...';
+            loginSpinner.classList.remove('hidden');
+            loginBtn.disabled = true;
+
+            setTimeout(() => {
+                loginContainer.classList.add('hidden', 'opacity-0');
+                dashboard.classList.remove('hidden');
+                usernameDisplay.textContent = document.getElementById('email').value.split('@')[0]; // Display username
+                showToast('Logged in successfully!', 'success');
+
+                // Simulate fetching data (replace with actual API calls)
+                portfolioValue.textContent = '$24,589.42';
+                btcPrice.textContent = '$42,156.78';
+                ethPrice.textContent = '$2,845.32';
+
+                loginForm.reset();
+
+                // Reset login button
+                loginText.textContent = 'Sign In';
+                loginSpinner.classList.add('hidden');
+                loginBtn.disabled = false;
+            }, 2000);
+        });
+
+        // Logout Function
+        logoutBtn.addEventListener('click', function () {
+            // Show login, hide dashboard
+            dashboard.classList.add('hidden');
+            loginContainer.classList.remove('hidden', 'opacity-0');
+
+            // Reset form
+            loginForm.reset();
+
+            showToast('Logged out successfully!', 'success');
+        });
+
+        // Technical Analysis Button Handlers
+        ema9Btn.addEventListener('click', () => toggleIndicator('ema9'));
+        ema21Btn.addEventListener('click', () => toggleIndicator('ema21'));
+        ema50Btn.addEventListener('click', () => toggleIndicator('ema50'));
+        sma200Btn.addEventListener('click', () => toggleIndicator('sma200'));
+        trendlineBtn.addEventListener('click', () => toggleIndicator('trendline'));
+
+        // Initialize with a toast example
+        setTimeout(() => {
+            showToast('Welcome to Crypto Dashboard!', 'info');
+        }, 1000);
+    </script>
+</body>
+
+</html>
